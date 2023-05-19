@@ -33,22 +33,26 @@ def getPandasFrame(colNames):
     df['Timestamp'] = pd.to_datetime(df['Timestamp'], format='%m-%d %H:%M:%S')
     df.set_index('Timestamp', inplace=True)
 
-    groupdata_bydate = {date.strftime('%m-%d'): df_group for date, df_group in df.groupby(df.index.date)} # DICTIONARY CONTAINING {MONTH-DAY:DF, MONTH-DAY2: DF2 ...}
-    return groupdata_bydate
+    dictdata_bydate = {date.strftime('%m-%d'): df_group for date, df_group in df.groupby(df.index.date)} # DICTIONARY CONTAINING {MONTH-DAY:DF, MONTH-DAY2: DF2 ...}
+    
+    return dictdata_bydate
 
     # THE DATA FRAME IS ORGANIZED WHERE EACH ROW IS CORRESPONDING SENSOR VALUE. ALLOWING FOR EASY DATA MANIPULATION 
     #     PT205A-(1)  PT205B-(1)  PT401-(1)  PURITY-1
     # 0          3.0         4.0        5.0      11.0
     # 1         12.0        13.0       14.0      20.0
 
-def preprocessData(df, colNames):
+def preprocessData(df_dict):
     # IMPLEMENT IMPUTATION, repacing outliers with mean
 
-    df.dropna(inplace=True)
-    scaler = MinMaxScaler()
-    df[colNames] = scaler.fit_transform(df[colNames]) # SCALES VALUES 
+    processed_data = {}
+    for date, df in df_dict.items():
+        df.dropna(inplace=True)
+        scaler = MinMaxScaler()
+        df[colNames] = scaler.fit_transform(df[colNames]) # SCALES VALUES 
+        processed_data[date] = df
 
-    return df
+    return processed_data
 
 def trainModel(df):
     x = df.drop(targetPurity, axis=1) # CREATES FRAME OF INPUT VARIABLES
@@ -70,13 +74,17 @@ def evaluatePerformance(y_test, predictions):
     print('mean_squared_error : ', mean_squared_error(y_test, predictions))
     print('mean_absolute_error : ', mean_absolute_error(y_test, predictions))
 
+
+def getCycleTime():
+    x=5
+    return x
+
 if __name__ == '__main__':
     db = DB()
 
     colNames = ['PT205A-(1)', 'PT205B-(1)', 'PT401-(1)', 'PURITY-1'] # LIST OF SENSORS WE WANT DATA FROM
     targetPurity = colNames[3]
-    temporalData = getPandasFrame(colNames) # DICTIONARY CONTAINING {MONTH-DAY:DF, MONTH-DAY2: DF2 ...}
-    print(temporalData)
-    # groupdata_bydate = preprocessData(df, colNames)
-    
+    df_dict = getPandasFrame(colNames) # DICTIONARY CONTAINING {MONTH-DAY:DF, MONTH-DAY2: DF2 ...}
+    processed_data = preprocessData(df_dict)
+    print(processed_data)
     
