@@ -21,19 +21,25 @@ Using Multivariate Linear Regression for Biochemical Oxygen Demand Prediction in
 
 def getPandasFrame(colNames):
     sensorDict = {} # {'sensor1': sensor_data... 'sensorn': sensor_data}
+    timestamps = db.getTimestamps()
+    sensorDict.update({'Timestamp': [date for date in timestamps]})
     for i in range(len(colNames)):
         colName = colNames[i]
         data = db.getColumnValues(colName)
-        sensorDict.update({colName: [value for value, _ in data]})  # GET SENSOR DATA, (time is also available but not added to df since already organized by index)
+        sensorDict.update({colName: [value for value in data]})  # GET SENSOR DATA, (time is also available but not added to df since already organized by index)
     
     df = pd.DataFrame.from_dict(sensorDict, orient='columns')  # DICTIONARY TO DATA FRAME
-    return df
+
+    df['Timestamp'] = pd.to_datetime(df['Timestamp'], format='%m-%d %H:%M:%S')
+    df.set_index('Timestamp', inplace=True)
+
+    groupdata_bydate = {date.strftime('%m-%d'): df_group for date, df_group in df.groupby(df.index.date)} # DICTIONARY CONTAINING {MONTH-DAY:DF, MONTH-DAY2: DF2 ...}
+    return groupdata_bydate
 
     # THE DATA FRAME IS ORGANIZED WHERE EACH ROW IS CORRESPONDING SENSOR VALUE. ALLOWING FOR EASY DATA MANIPULATION 
     #     PT205A-(1)  PT205B-(1)  PT401-(1)  PURITY-1
     # 0          3.0         4.0        5.0      11.0
     # 1         12.0        13.0       14.0      20.0
-    return df
 
 def preprocessData(df, colNames):
     # IMPLEMENT IMPUTATION, repacing outliers with mean
@@ -69,7 +75,8 @@ if __name__ == '__main__':
 
     colNames = ['PT205A-(1)', 'PT205B-(1)', 'PT401-(1)', 'PURITY-1'] # LIST OF SENSORS WE WANT DATA FROM
     targetPurity = colNames[3]
-    df = getPandasFrame(colNames)
-    df = preprocessData(df, colNames)
-    trainModel(df)
+    temporalData = getPandasFrame(colNames) # DICTIONARY CONTAINING {MONTH-DAY:DF, MONTH-DAY2: DF2 ...}
+    print(temporalData)
+    # groupdata_bydate = preprocessData(df, colNames)
+    
     

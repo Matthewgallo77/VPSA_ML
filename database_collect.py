@@ -46,10 +46,8 @@ class DB:
 
     def getColumnValues(self, colName): # GET VALUE OF COLUMN AND CORRESPONDING TIME
         mycursor = self.db.cursor()
-        mycursor.execute(f"SELECT `{colName}`, Timestamp FROM {self.table_past}")
-        data = []
-        for row in mycursor.fetchall():
-            data.append((float(row[0]), row[1].strftime('%H:%M:%S')))
+        mycursor.execute(f"SELECT `{colName}` FROM {self.table_past}")
+        data = [float(row[0]) for row in mycursor.fetchall()]
 
         return data
         
@@ -60,6 +58,13 @@ class DB:
         rows = mycursor.fetchall()
         df = pd.DataFrame(rows, ColList)
         return df
+    
+    def getTimestamps(self): # LIST OF TIMESTAMPS
+        mycursor = self.db.cursor()
+        mycursor.execute(f"SELECT Timestamp FROM {self.table_past}")
+        timestamps = [row[0].strftime('%m-%d %H:%M:%S') for row in mycursor.fetchall()]
+
+        return timestamps
 
 
             
