@@ -7,7 +7,9 @@ import pandas as pd
 
 # SCIKIT 
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression
+from sklearn.pipeline import make_pipeline
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from sklearn import preprocessing
 from sklearn.preprocessing import MinMaxScaler
@@ -29,6 +31,7 @@ def getPandasFrame(colNames):
         sensorDict.update({colName: [value for value in data]})  # GET SENSOR DATA, (time is also available but not added to df since already organized by index)
         
     df = pd.DataFrame.from_dict(sensorDict, orient='columns')  # DICTIONARY TO DATA FRAME
+    print(df)
     return df
 
 def getTestPandasFrame(test_setpoints): 
@@ -57,42 +60,41 @@ def trainModel(df):
     x = df.drop(targetPurity, axis=1) # CREATES FRAME OF INPUT VARIABLES
     y = df[targetPurity] # CREATES FRAME OF PURITY
     
-    # https://www.geeksforgeeks.org/how-to-split-a-dataset-into-train-and-test-sets-using-python/
-
+    # https://www.geeksforgeeks.org/how-to-split-a-dataset-into-train-and-test-sets-using-python/   
     # Explore different test_sizes to see what works best
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=.25, random_state=None, shuffle=None, stratify=None )
 
-    model = LinearRegression()
+    model = make_pipeline(PolynomialFeatures(degree=3), LinearRegression())
     model.fit(x_train, y_train) # THE MODEL LEARNS THE TRAINING DATA
     return model
  
-def evaluatePerformance(y_test, predictions):
+def evaluatePerformance(y_test, predictions): # AIM FOR LOW MSE AND MAE
     print('mean_squared_error : ', mean_squared_error(y_test, predictions))
     print('mean_absolute_error : ', mean_absolute_error(y_test, predictions))
 
-def predictPurity(trainedModel, setpoints_test):
+def predictPurity(trainedModel, setpoints_test): # INPUT DESIRED SETPOINTS, OUTPUTS ARRAY OF PURITY 
     setpoints_test = setpoints_test.drop(targetPurity, axis=1)
     predictions = trainedModel.predict(setpoints_test)
-    print(predictions)
-    return None
+    return predictions
 
 if __name__ == '__main__':
-    db = DB()
+    db = DB() # INSTANCE OF DATABASE
     scaler = MinMaxScaler() # GLOBAL SCALAR
 
-    # PmaxAvg, PminAvg, TCYCLEREAL, F401_1C, AI401_1C_OLD
-    PmaxAvg, PminAvg = 10, 5 # dummy values
-    colNames = ['TCYCLEREAL', 'F401_1C', 'AI401_1C_OLD'] # LIST OF SENSORS WE WANT DATA FROM
+    # PmaxAvg, PminAvg, TCYCLEREAL, F401_1C, TI143, AI401_1C_OLD
+    PmaxAvg, PminAvg = 0, 0 # dummy values get from tag table
+    colNames = ['TCYCLEREAL', 'F401_1C', 'TI143', 'AI401_1C_OLD'] # LIST OF SENSORS WE WANT DATA FROM
     targetPurity = colNames[-1]
 
-    rawdf = getPandasFrame(colNames) # DICTIONARY CONTAINING {MONTH-DAY:DF, MONTH-DAY2: DF2 ...}
-    print(rawdf)
-    scaler.fit(rawdf[colNames])
-
-    processed_df = preprocessData(rawdf, scaler)
+    raw_df = getPandasFrame(colNames) # DICTIONARY CONTAINING {MONTH-DAY:DF, MONTH-DAY2: DF2 ...}
+    scaler.fit(raw_df[colNames])
+    processed_df = preprocessData(raw_df, scaler)
     trainedModel = trainModel(processed_df) # TRAIN THE MODEL FROM PAST DATA
-    test_setpoints = [27000, 2.61, 89.7] # NEW SETPOINTS YOU WANT TO TEST
+
+    test_setpoints = [31000, 2.33, 89.6, 89.77] # NEW SETPOINTS YOU WANT TO TEST
     testraw_df = getTestPandasFrame(test_setpoints)
+
     testprocessed_df = preprocessData(testraw_df, scaler)
-    # print(testprocessed_df) 
+
     purityPredictions = predictPurity(trainedModel, testprocessed_df) 
+    print(purityPredictions)
