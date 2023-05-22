@@ -50,14 +50,7 @@ class DB:
         data = [float(row[0]) for row in mycursor.fetchall()]
 
         return data
-        
-    def getPandaFrame(self, ColList):
-        # PUT DATA INTO PANDAS DATA FRAME
-        mycursor = self.db.cursor()
-        mycursor.execute(f"SELECT * FROM {self.table_past}")
-        rows = mycursor.fetchall()
-        df = pd.DataFrame(rows, ColList)
-        return df
+    
     
     def getTimestamps(self): # LIST OF TIMESTAMPS
         mycursor = self.db.cursor()
