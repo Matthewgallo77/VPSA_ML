@@ -1,9 +1,13 @@
-import mysql.connector
-from datetime import datetime
-from database_collect import DB
+
 import time
+import os
+
 import numpy as np
 import pandas as pd
+import mysql.connector
+
+from datetime import datetime
+from VPSA_ML.src.database_manager import DatabaseConnector
 
 # TENSORFLOW
 import tensorflow as tf
@@ -30,71 +34,34 @@ SCALING: https://betterdatascience.com/data-scaling-for-machine-learning/
 Using Multivariate Linear Regression for Biochemical Oxygen Demand Prediction in Waste Water: https://arxiv.org/pdf/2209.14297.pdf  **GREAT RESOURCE**
 '''
 
-def convert_db_to_dataframe(colNames):
-    # Convert database data into a pandas dataframe
-    sensorDict = {} # {'sensor1': sensor_data... 'sensorn': sensor_data}
+class LSTMmodel:
+    def __init__(self, feature_variables, target, train_df, test_df, scaler_inputs, scaler_target):
+        self.feature_names = list(feature_variables.keys()) # list holding features
+        self.target_name = list(target.keys())[0] # string holding name of target
+        self.data_dir = os.path.join(os.path.dirname(__file__), '..', 'data')
 
-    for i in range(len(colNames)):
-        colName = colNames[i]
-        data = db.getColumnValues(colName)
-        sensorDict.update({colName: [value for value in data]})  # GET SENSOR DATA, (time is also available but not added to df since already organized by index)
+        self.train_df = train_df 
+        self.test_df = test_df
+
+        self.scaler_inputs = scaler_inputs
+        self.scaler_target = scaler_target
+
         
-    df = pd.DataFrame.from_dict(sensorDict, orient='columns')  # DICTIONARY TO DATA FRAME
-    df = df[20::] # USE DATA AFTER 20 MINUTES FOR STABILIZATION OF PLANT
 
-    return df
 
-def convert_test_data_to_dataframe(test_setpoints): 
-    # Convert test data into a pandas dataframe
-    test_sensorDict ={} # {'sensor1': test_setpoint1... 'sensorn': test_setpointn}
+    def evaluate_model_performance(y_test, predictions): 
+        # Evaluate performance of model
+        print('mean_squared_error : ', mean_squared_error(y_test, predictions))
+        print('mean_absolute_error : ', mean_absolute_error(y_test, predictions))
 
-    for i in range(len(colNames)):
-        colName = colNames[i]
-        data = test_setpoints[i]
-        test_sensorDict.update({colName: data})
-        test_sensorList = [test_sensorDict]
+    def predict_purity_using_LSTM(trained_LSTM_model, test_matrix, scaler): 
+        # Predict purity for the trained model 
+        prediction_scaled = trained_LSTM_model.predict(test_matrix)
+        prediction_2d = np.array(prediction_scaled).reshape(-1,1)
 
-    test_df = pd.DataFrame(test_sensorList)
+        prediction_inverse_scaled = scaler.inverse_transform(prediction_2d)
 
-    return test_df
-
-def preprocessData(df, scaler_inputs, scaler_purity, targetPurity):
-    # Preprocess by removing NaN values and scaling
-    df.dropna(inplace=True)
-    input_df = df.drop(targetPurity, axis=1) # contains only input features
-    input_df = scaler_inputs.transform(input_df) # apply input scaler to this data frame
-
-    df_scaled = pd.DataFrame(input_df, columns=df.columns.drop(targetPurity))
-    df_scaled[targetPurity] = scaler_purity.transform(df[[targetPurity]])
-    # reuse scaler for future use
-    return df_scaled
-
-def train_poly_regression_model(df):
-    # Train a polynomial regression model
-    x = df.drop(targetPurity, axis=1) # CREATES FRAME OF INPUT VARIABLES
-    y = df[targetPurity] # CREATES FRAME OF PURITY
-    
-    # https://www.geeksforgeeks.org/how-to-split-a-dataset-into-train-and-test-sets-using-python/   
-    # Explore different test_sizes to see what works best
-    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=.25, random_state=None, shuffle=None, stratify=None )
-
-    poly_model = make_pipeline(PolynomialFeatures(degree=3), LinearRegression())
-    poly_model.fit(x_train, y_train) # THE MODEL LEARNS THE TRAINING DATA
-    return poly_model
- 
-def evaluate_model_performance(y_test, predictions): 
-    # Evaluate performance of model
-    print('mean_squared_error : ', mean_squared_error(y_test, predictions))
-    print('mean_absolute_error : ', mean_absolute_error(y_test, predictions))
-
-def predict_purity_using_LSTM(trained_LSTM_model, test_matrix, scaler): 
-    # Predict purity for the trained model 
-    prediction_scaled = trained_LSTM_model.predict(test_matrix)
-    prediction_2d = np.array(prediction_scaled).reshape(-1,1)
-
-    prediction_inverse_scaled = scaler.inverse_transform(prediction_2d)
-
-    return prediction_inverse_scaled
+        return prediction_inverse_scaled
 
 def reshape_training_data(df):
     # Reshape training data
@@ -141,19 +108,17 @@ def trainLSTM_Model(x, y, cycle_length=1):
     return LSTM_model
 
 if __name__ == '__main__':
-    db = DB() # INSTANCE OF DATABASE
-    scaler_inputs = MinMaxScaler() # Scaler used for input
-    scaler_purity = MinMaxScaler() # Scalar used for purity
+    db = DatabaseConnector() # INSTANCE OF DATABASE
+    
     colNames = ['TCYCLEREAL','F401','TI143', 'PmaxAvg', 'PminAvg', 'AI401'] # LIST OF SENSORS WE WANT DATA FROM
     targetPurity = colNames[-1]
     test_setpoints = [27000, 2.5, 95.13, 5.8, -6.81, 78] # NEW SETPOINTS YOU WANT TO TEST
 
+
+    scaler_inputs = MinMaxScaler() # Scaler used for input
+    scaler_purity = MinMaxScaler() # Scalar used for purity
     # PmaxAvg, PminAvg, TCYCLEREAL, F401_1C, TI143, AI401
-    raw_df = convert_db_to_dataframe(colNames) # DICTIONARY CONTAINING {MONTH-DAY:DF, MONTH-DAY2: DF2 ...}
-    scaler_purity.fit(raw_df[[targetPurity]])
-    scaler_inputs.fit(raw_df[colNames[:5]])
-    processed_df = preprocessData(raw_df, scaler_inputs, scaler_purity, targetPurity)
-    print(processed_df)
+
 
     testraw_df = convert_test_data_to_dataframe(test_setpoints)
     testprocessed_df = preprocessData(testraw_df, scaler_inputs, scaler_purity, targetPurity)
