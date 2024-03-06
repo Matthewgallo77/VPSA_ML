@@ -7,14 +7,15 @@ import numpy as np
 import snap7
 from snap7.util import *
 from snap7.exceptions import Snap7Exception
-import utilities 
+
 
 class PLCManager:
     def __init__(self, ip_address=None, rack=0, slot=1):
         self.client = snap7.client.Client()
-        self.ip_address = ip_address
-        self.rack = rack
-        self.slot = slot
+        self.ip_address = '192.168.10.21'
+        self.rack = 0
+        self.slot = 1
+        self.db_number = 10 # datablock number
         self.tag_datatype = {'Int': 2, 'Real': 4}
         
         self.is_connected = False
@@ -24,10 +25,11 @@ class PLCManager:
 
         self.lock = threading.Lock() # lock used to synchronize PLC TCP requests
 
-        self.load_plc_config() # load plc config from text
-        # self.connect_plc() # connect to plc
-        self.feature_variables = self.set_feature_setpoints() # get feature setpoints
-        self.target_variables = self.set_target_setpoints()
+        # self.
+
+        self.connect_plc() # connect to plc
+        # self.feature_variables = self.set_feature_setpoints() # get feature setpoints
+        # self.target_variables = self.set_target_setpoints()
         
     def connect_plc(self):
         '''attempt to connect to PLC'''
@@ -43,7 +45,7 @@ class PLCManager:
 
         return False
 
-    def read_data(self, address, data_type):
+    def read_tag_data(self, address, data_type):
         '''read data from PLC at specified address and datatype'''
         with self.lock: # acquire lock before reading data
             offset = self.get_offset(address)
@@ -63,7 +65,18 @@ class PLCManager:
                 return round(value, 5)
             else:
                 return None
-    
+
+    def read_datablock(self):
+        # we will only read the necessary tag data
+        number_variables = 7 # (len(self.feature_variables)+len(self.target_variables))
+        bytes_to_read = number_variables*4
+        raw_data = self.client.db_read(self.db_number, 0, bytes_to_read)
+                
+        # Extract 'Real' values from raw data
+        real_values = [get_real(raw_data, i * 4) for i in range(number_variables)]
+        
+        # Return the list of 'Real' values
+        return real_values
     
     def read_data_util(self, byte_array, data_type):
         '''convert byte array to specific datatype'''
@@ -85,17 +98,6 @@ class PLCManager:
         os.makedirs(os.path.dirname(self.plc_info_path), exist_ok=True)
         with open(self.plc_info_path, 'w') as file:
             file.write(f"{self.ip_address},{self.rack},{self.slot}")
-
-    def load_plc_config(self):
-        '''load plc config from text file'''
-        if os.path.exists(self.plc_info_path):
-            with open(self.plc_info_path, 'r') as file:
-                ip_address, rack, slot = file.read().strip().split(',')
-                self.ip_address = ip_address
-                self.rack = int(rack)
-                self.slot = int(slot)
-                return True
-        return False
 
     def disconnect_plc(self):
         self.client.disconnect()  

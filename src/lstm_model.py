@@ -7,7 +7,7 @@ import pandas as pd
 import mysql.connector
 
 from datetime import datetime
-from VPSA_ML.src.database_manager import DatabaseConnector
+from database_manager import DatabaseConnector
 
 # TENSORFLOW
 import tensorflow as tf
