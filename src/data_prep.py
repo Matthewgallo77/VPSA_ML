@@ -9,8 +9,8 @@ class DataPreparationPipeline:
         self.database = database # database object
         self.plc = plc
 
-        self.feature_names = ['cycle_time_Setpoint', 'Pmax_avg_Setpoint', 'Pmin_avg_Setpoint', 'Temp_avg_Setpoint', 'Purity_avg_Setpoint'] # FEATURE VARIABLES USED FOR PREDICTION
-        self.target_names = ['FIC12_Setpoint', 'FIC31_Setpoint']
+        self.feature_names = ['Pmax_avg', 'Pmin_avg', 'Cycle_Time', 'Purity_Avg', 'Temp_Avg']
+        self.target_names = ['FIC12_Avg', 'FIC31_Avg']
 
         self.scaler_inputs = MinMaxScaler() # scaler for input features
         self.scaler_target = MinMaxScaler() # scaler for target feature
@@ -44,23 +44,26 @@ class DataPreparationPipeline:
         return train_df
     
     def test_data_to_dataframe(self):
-        test_sensor_dict = {col_name: [value] for col_name, value in self.feature_variables.items()}
-        test_sensor_dict[self.target_name] = [self.target_value]
+        test_sensor_dict = {}
+        for col_name in self.feature_names + self.target_names:
+            if col_name in self.feature_variables:
+                test_sensor_dict[col_name] = [self.feature_variables[col_name]]
+            elif col_name in self.target_variables:
+                test_sensor_dict[col_name] = [self.target_variables[col_name]]
+
         test_df = pd.DataFrame(test_sensor_dict)
 
         raw_data_path = os.path.join(self.data_dir, 'raw_test_data.csv')
         test_df.to_csv(raw_data_path, index=False)
 
         return test_df
-    
-
+        
     def set_feature_setpoints(self):
         feature_variables = {}
 
         for feature_name in self.feature_names:
             try:
-                address, data_type = self.database.get_address_by_name(feature_name), self.database.get_datatype_by_name(feature_name)
-                value = self.plc.read_data(address, data_type) # reads setpoit value in PLC memory automatically
+                value = float(input(f"Please input {feature_name} setpoint: "))
                 feature_variables[feature_name] = value
             except ValueError:
                 value = 0 
@@ -74,9 +77,7 @@ class DataPreparationPipeline:
 
         for target_name in self.target_names:
             try:
-                address, data_type = self.database.get_address_by_name(target_name), self.database.get_datatype_by_name(target_name)
-                value = self.plc.read_data(address, data_type) 
-                target_variables[target_name] = value
+                target_variables[target_name] = float(input(f"Please input {target_name} setpoint: "))
             except ValueError:
                 value = 0
                 target_variables[target_name] = value
@@ -90,21 +91,20 @@ class DataPreparationPipeline:
 
         # split into features and target
         features = df_cleaned[self.feature_names] 
-        target = df_cleaned[[self.target_name]]
+        target = df_cleaned[self.target_names]
 
         self.scaler_inputs.fit(features)
         features_scaled = self.scaler_inputs.transform(features)
 
         self.scaler_target.fit(target)
-        target_scaled = self.scaler_target.transform(target)
+        targets_scaled = self.scaler_target.transform(target)
 
         df_scaled = pd.DataFrame(features_scaled, columns=self.feature_names)
-        df_scaled[self.target_name] = target_scaled.ravel()  # flatten to 1D
 
+        targets_scaled_df = pd.DataFrame(targets_scaled, columns=self.target_names)
+        df_scaled = pd.concat([df_scaled, targets_scaled_df], axis=1)
+        print(df_scaled)
         return df_scaled
     
     
-        
-
-
-
+    

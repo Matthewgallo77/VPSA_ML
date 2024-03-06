@@ -38,6 +38,7 @@ class PLCManager:
             try:
                 self.client.connect(self.ip_address, self.rack, self.slot)
                 self.is_connected = True
+                print("PLC connected")
                 self.write_plc_config() # if successfully connected write IP address information
                 return True
             except (Snap7Exception, RuntimeError) as e:
@@ -67,15 +68,12 @@ class PLCManager:
                 return None
 
     def read_datablock(self):
-        # we will only read the necessary tag data
-        number_variables = 7 # (len(self.feature_variables)+len(self.target_variables))
+        number_variables = 7
         bytes_to_read = number_variables*4
         raw_data = self.client.db_read(self.db_number, 0, bytes_to_read)
                 
-        # Extract 'Real' values from raw data
         real_values = [get_real(raw_data, i * 4) for i in range(number_variables)]
         
-        # Return the list of 'Real' values
         return real_values
     
     def read_data_util(self, byte_array, data_type):

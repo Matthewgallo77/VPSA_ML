@@ -46,9 +46,6 @@ class LSTMmodel:
         self.scaler_inputs = scaler_inputs
         self.scaler_target = scaler_target
 
-        
-
-
     def evaluate_model_performance(y_test, predictions): 
         # Evaluate performance of model
         print('mean_squared_error : ', mean_squared_error(y_test, predictions))

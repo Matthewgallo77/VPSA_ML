@@ -10,19 +10,14 @@ import pandas as pd
 
 def main():
     # connect to database
-    # database_manager = DatabaseConnector() #
-    # database_manager.connect_database()
-
+    database_manager = DatabaseConnector() #
+    database_manager.connect_database()
     PLC_manager = PLCManager()
-    # feature_variables = PLC_manager.feature_variables
-    # target_variables = PLC_manager.target_variables
+    PLC_manager.connect_plc()
     # selected features and their corresponding setpoints
-    x=PLC_manager.read_datablock()
-    print(x)
-    # fetch and prepare the data for training
-    # data_pipeline = DataPreparationPipeline(database_manager, PLC_manager, feature_variables, target_variables)
 
-    # prepare test data
+    # fetch and prepare the data for training
+    data_pipeline = DataPreparationPipeline(database_manager, PLC_manager)
     
 
     # use data to train the model
