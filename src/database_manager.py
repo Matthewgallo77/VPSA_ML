@@ -12,18 +12,20 @@ import mysql.connector.errors
 class DatabaseConnector:    
 
     def __init__(self, database_name=None, host=None, user=None, password=None):
-
+        
         self.db = None
         self.database_name = 'pilotplant'
         self.host = 'localhost'
         self.user = 'root'
         self.password = 'root'
-        self.sql_config_path = 'configs/mysql_config.txt' # this will be the database_name
+        self.sql_config_path = 'configs/mysql_config.txt'
+        
         self.is_connected = False
         
-        self.data_frame = None # store data frame for operations 
-
+        self.data_frame = None
         self.table_past = 'pastValues'
+
+        self.connect_database() # connect to database once object is created
 
     def get_column_headers(self): # GET ALL THE HEADERS OF A COLUMN
         mycursor = self.db.cursor()

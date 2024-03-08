@@ -25,11 +25,8 @@ class PLCManager:
 
         self.lock = threading.Lock() # lock used to synchronize PLC TCP requests
 
-        # self.
 
         self.connect_plc() # connect to plc
-        # self.feature_variables = self.set_feature_setpoints() # get feature setpoints
-        # self.target_variables = self.set_target_setpoints()
         
     def connect_plc(self):
         '''attempt to connect to PLC'''
@@ -68,14 +65,15 @@ class PLCManager:
                 return None
 
     def read_datablock(self):
-        number_variables = 7
-        bytes_to_read = number_variables*4
-        raw_data = self.client.db_read(self.db_number, 0, bytes_to_read)
-                
-        real_values = [get_real(raw_data, i * 4) for i in range(number_variables)]
-        
-        return real_values
-    
+        with self.lock:
+            number_variables = 7
+            bytes_to_read = number_variables*4
+            raw_data = self.client.db_read(self.db_number, 0, bytes_to_read)
+                    
+            real_values = [get_real(raw_data, i * 4) for i in range(number_variables)]
+
+            return real_values
+
     def read_data_util(self, byte_array, data_type):
         '''convert byte array to specific datatype'''
         if data_type == 'Real':

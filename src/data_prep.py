@@ -6,30 +6,45 @@ from sklearn.preprocessing import MinMaxScaler
 class DataPreparationPipeline:
 
     def __init__(self, database, plc):
+
         self.database = database # database object
-        self.plc = plc
+        self.plc = plc # plc object
 
-        self.feature_names = ['Pmax_avg', 'Pmin_avg', 'Cycle_Time', 'Purity_Avg', 'Temp_Avg']
-        self.target_names = ['FIC12_Avg', 'FIC31_Avg']
+        self.feature_names = ['Pmax_avg', 'Pmin_avg', 'Cycle_Time', 'Purity_Avg', 'Temp_Avg'] # input
+        self.feature_min_max_values = {
+            'Pmax_avg': (14, 24),  # Example min and max values for features
+            'Pmin_avg': (3, 15),
+            'Cycle_Time': (15, 125),
+            'Purity_Avg': (60, 100),
+            'Temp_Avg': (-20, 150)
+        }
+        
+        self.target_names = ['FIC12_Avg', 'FIC31_Avg'] # output
+        self.target_min_max_values = {
+            'FIC12_Avg': (0, 50), 
+            'FIC31_Avg': (0, 5)
+        }
 
-        self.scaler_inputs = MinMaxScaler() # scaler for input features
-        self.scaler_target = MinMaxScaler() # scaler for target feature
+        self.data_dir = os.path.join(os.path.dirname(__file__), '..', 'data') # dir path for storing training and testing data
 
-        self.data_dir = os.path.join(os.path.dirname(__file__), '..', 'data') # dir for data
+        # set setpoints for feature and targets
+        '''
+        Goal: automate this by reading directly from PLC memory (for now we have manual entry)
+        '''
 
-        # get setpoints for feature and targets
-        self.feature_variables = self.set_feature_setpoints() 
-        self.target_variables = self.set_target_setpoints()
+        self.feature_variables, self.target_variables = self.set_feature_setpoints(), self.set_target_setpoints()
 
-        # get training data from sql database
         self.raw_train_data = self.train_data_to_dataframe() 
         self.processed_train_data = self.preprocess_data(self.raw_train_data) # preprocess train data
+        self.features_train, self.targets_train = self.processed_train_data[self.feature_variables], self.processed_train_data[self.target_variables]
 
-        # get test data from feature and target variables
         self.raw_test_data = self.test_data_to_dataframe()
         self.processed_test_data = self.preprocess_data(self.raw_test_data) # preprocess test data
-
+        self.features_test, self.targets_test = self.processed_test_data[self.feature_variables], self.processed_test_data[self.target_variables]
+        
     def train_data_to_dataframe(self):
+        # read values from database
+        # create training data dataframe
         sensor_dict = {}
         for col_name in self.feature_names + self.target_names:
             data = self.database.get_column_values(col_name)
@@ -44,6 +59,7 @@ class DataPreparationPipeline:
         return train_df
     
     def test_data_to_dataframe(self):
+        # test data containing initial values of features and target
         test_sensor_dict = {}
         for col_name in self.feature_names + self.target_names:
             if col_name in self.feature_variables:
@@ -86,25 +102,18 @@ class DataPreparationPipeline:
 
     
     def preprocess_data(self, df):
+        df_cleaned = df.dropna()
+        features_scaled = self.preset_scaler(df_cleaned[self.feature_names], self.feature_min_max_values)
+        targets_scaled = self.preset_scaler(df_cleaned[self.target_names], self.target_min_max_values)
+        return pd.concat([features_scaled, targets_scaled], axis=1)
 
-        df_cleaned = df.dropna() # drop nan values (can occur from issues reading from memory)
+    def preset_scaler(self, data, min_max_values):
+        data_scaled = pd.DataFrame()
+        for col in data.columns:
+            min_val, max_val = min_max_values[col]
+            data_scaled[col] = (data[col] - min_val) / (max_val - min_val)
+        return data_scaled
 
-        # split into features and target
-        features = df_cleaned[self.feature_names] 
-        target = df_cleaned[self.target_names]
-
-        self.scaler_inputs.fit(features)
-        features_scaled = self.scaler_inputs.transform(features)
-
-        self.scaler_target.fit(target)
-        targets_scaled = self.scaler_target.transform(target)
-
-        df_scaled = pd.DataFrame(features_scaled, columns=self.feature_names)
-
-        targets_scaled_df = pd.DataFrame(targets_scaled, columns=self.target_names)
-        df_scaled = pd.concat([df_scaled, targets_scaled_df], axis=1)
-        print(df_scaled)
-        return df_scaled
     
     
     
